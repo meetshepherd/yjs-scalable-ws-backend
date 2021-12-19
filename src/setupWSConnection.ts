@@ -1,14 +1,22 @@
 import { WebSocket, Data as WSData } from 'ws';
 import http from 'http';
 import * as Y from 'yjs';
-import * as awarenessProtocol from 'y-protocols/awareness.js'
+import * as awarenessProtocol from 'y-protocols/awareness.js';
 import * as syncProtocol from 'y-protocols/sync.js';
 import * as mutex from 'lib0/mutex';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import { serverLogger } from './logger/index.js';
-import knex from './knex.js'
-import {pub, sub} from './pubsub.js';
+import { pub, sub } from './pubsub.js';
+import config from './config.js';
+
+//* FIREBASE UTILS
+import { initializeApp } from "firebase/app";
+import { Timestamp, Bytes, doc, collection, getFirestore, getDocs, addDoc, query, orderBy } from "firebase/firestore";
+const app = initializeApp(config.firebaseConfig);
+const db = getFirestore(app);
+const docnameItemsRef = (docName: string) => collection(db, `meetings/${docName}/items`);
+//* FIREBASE UTILS
 
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
@@ -49,14 +57,22 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
   });
 
   if (isNew) {
-    const persistedUpdates = await getUpdates(doc);
-    const dbYDoc = new Y.Doc()
+    // TODO construct starting with checkpoint
 
+    const q = query(docnameItemsRef(doc.name), orderBy('timestamp'));
+    const querySnapshot = await getDocs(q);
+    const dbYDoc = new Y.Doc();
     dbYDoc.transact(() => {
-      for (const u of persistedUpdates) {
-        Y.applyUpdate(dbYDoc, u.update);
-      }
+      querySnapshot.forEach((item) => {
+        const data = item.data() as {
+          timestamp: Timestamp,
+          update: Bytes,
+        };
+        Y.applyUpdate(dbYDoc, data.update.toUint8Array());
+      });
     });
+
+    // TODO checkpoint check and update accordingly
 
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(dbYDoc))
   }
@@ -130,35 +146,6 @@ export const messageListener = async (conn: WebSocket, req: http.IncomingMessage
   }
 }
 
-export const getUpdates = async (doc: WSSharedDoc): Promise<DBUpdate[]> => {
-  return knex.transaction(async (trx) => {
-    const updates = await knex<DBUpdate>('items').transacting(trx).where('docname', doc.name).forUpdate().orderBy('id');
-
-    if (updates.length >= updatesLimit) {
-      const dbYDoc = new Y.Doc();
-      
-      dbYDoc.transact(() => {
-        for (const u of updates) {
-          Y.applyUpdate(dbYDoc, u.update);
-        }
-      });
-
-      const [mergedUpdates] = await Promise.all([
-        knex<DBUpdate>('items').transacting(trx).insert({docname: doc.name, update: Y.encodeStateAsUpdate(dbYDoc)}).returning('*'),
-        knex('items').transacting(trx).where('docname', doc.name).whereIn('id', updates.map(({id}) => id)).delete()
-      ]);
-
-      return mergedUpdates;
-    } else {
-      return updates;
-    }
-  });
-}
-
-export const persistUpdate = async (doc: WSSharedDoc, update: Uint8Array): Promise<void> => {
-  await knex('items').insert({docname: doc.name, update});
-}
-
 export const getYDoc = (docname: string, gc=true): [WSSharedDoc, boolean] => {
   const existing = docs.get(docname);
   if (existing) {
@@ -219,7 +206,10 @@ export const updateHandler = async (update: Uint8Array, origin: any, doc: WSShar
   doc.conns.forEach((_, conn) => send(doc, conn, message));
 
   if (shouldPersist) {
-    await persistUpdate(doc, update);
+    await addDoc(docnameItemsRef(doc.name), {
+      update: Bytes.fromUint8Array(update),
+      timestamp: Timestamp.fromDate(new Date()),
+    });
   }
 }
 

@@ -6,15 +6,12 @@ import yWebSocket from 'y-websocket';
 import range from 'lodash/range.js';
 import { run } from '../app.js';
 import config from "../config.js";
-import { create, drop } from '../tables.js';
 
 const { WebsocketProvider } = yWebSocket;
 
 const wsUrl = (): string => `ws://${config.server.host}:${config.server.port}`;
 
 export const testSingleDoc = async (tc: t.TestCase) => {
-  await drop();
-  await create();
   const close = await run();
 
   const id = faker.datatype.uuid();
@@ -32,8 +29,6 @@ export const testSingleDoc = async (tc: t.TestCase) => {
 }
 
 export const testTwoDocs = async (tc: t.TestCase) => {
-  await drop();
-  await create();
   const close = await run();
 
   const id = faker.datatype.uuid();
@@ -57,7 +52,7 @@ export const testTwoDocs = async (tc: t.TestCase) => {
 
   const items2 = doc2.getArray('items');
 
-  items2.forEach((w, i) => {
+  items2.forEach((w: any, i: any) => {
     t.compare(w, words[i], 'docs not in sync');
   });
 
