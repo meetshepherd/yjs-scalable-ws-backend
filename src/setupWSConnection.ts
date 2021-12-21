@@ -1,14 +1,14 @@
 import { WebSocket, Data as WSData } from 'ws';
 import http from 'http';
 import * as Y from 'yjs';
-import * as awarenessProtocol from 'y-protocols/awareness.js';
-import * as syncProtocol from 'y-protocols/sync.js';
+import * as awarenessProtocol from 'y-protocols/awareness';
+import * as syncProtocol from 'y-protocols/sync';
 import * as mutex from 'lib0/mutex';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
-import { serverLogger } from './logger/index.js';
-import { pub, sub } from './pubsub.js';
-import config from './config.js';
+import { serverLogger } from './logger/index';
+import { pub, sub } from './pubsub';
+import config from './config';
 
 //* FIREBASE UTILS
 import { initializeApp } from "firebase/app";

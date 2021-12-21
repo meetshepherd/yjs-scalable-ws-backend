@@ -2,9 +2,9 @@ import express from 'express'
 import { WebSocketServer } from 'ws';
 import http from 'http';
 
-import config from './config.js';
-import { serverLogger } from './logger/index.js';
-import setupWSConnection, { cleanup } from './setupWSConnection.js';
+import config from './config';
+import { serverLogger } from './logger/index';
+import setupWSConnection, { cleanup } from './setupWSConnection';
 
 export const app = express();
 export const server = http.createServer(app);

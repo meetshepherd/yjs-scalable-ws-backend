@@ -1,4 +1,4 @@
-import createLogger from './createLogger.js';
+import createLogger from './createLogger';
 
 const SERVER = 'SERVER';
 const CLI = 'CLI';
