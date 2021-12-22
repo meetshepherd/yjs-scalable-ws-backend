@@ -9,12 +9,15 @@ import * as decoding from 'lib0/decoding';
 import { serverLogger } from './logger/index';
 import { pub, sub } from './pubsub';
 import config from './config';
+import makePubSub from './pubsub/index';
+
+const PUBSUB = makePubSub();
 
 //* FIREBASE UTILS
 import { initializeApp } from "firebase/app";
 import { Timestamp, Bytes, doc, collection, getFirestore, getDocs, addDoc, query, orderBy } from "firebase/firestore";
 const app = initializeApp(config.firebaseConfig);
-const db = getFirestore(app);
+const db = getFirestore(app);``
 const docnameItemsRef = (docName: string) => collection(db, `meetings/${docName}/items`);
 //* FIREBASE UTILS
 
@@ -195,7 +198,8 @@ export const updateHandler = async (update: Uint8Array, origin: any, doc: WSShar
   let shouldPersist = false;
 
   if (origin instanceof WebSocket && doc.conns.has(origin)) {
-    pub.publishBuffer(doc.name, Buffer.from(update)); // do not await
+    PUBSUB.publish(doc.name, update);
+    // pub.publishBuffer(doc.name, Buffer.from(update)); // do not await
     shouldPersist = true;
   }
 
@@ -247,17 +251,21 @@ export class WSSharedDoc extends Y.Doc {
     this.awareness.on('update', awarenessChangeHandler);
     this.on('update', updateHandler);
 
-    sub.subscribe(this.name).then(() => {
-      sub.on('messageBuffer', (channel, update) => {
-        if (channel.toString() !== this.name) {
-          return;
-        }
+    PUBSUB.subscribe(this.name, (update, sub) => {
+      Y.applyUpdate(this, update, sub);
+    });
 
-        // update is a Buffer, Buffer is a subclass of Uint8Array, update can be applied
-        // as an update directly
-        Y.applyUpdate(this, update, sub);
-      })
-    })
+    // sub.subscribe(this.name).then(() => {
+    //   sub.on('messageBuffer', (channel, update) => {
+    //     if (channel.toString() !== this.name) {
+    //       return;
+    //     }
+
+    //     // update is a Buffer, Buffer is a subclass of Uint8Array, update can be applied
+    //     // as an update directly
+    //     Y.applyUpdate(this, update, sub);
+    //   })
+    // })
   }
 
   destroy() {

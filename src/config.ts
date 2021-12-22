@@ -20,7 +20,13 @@ const config = {
     host: process.env.REDIS_HOST as string,
     port: Number(process.env.REDIS_PORT as string),
     keyPrefix: process.env.REDIS_PREFIX as string
-  }
+  },
+
+  gcp: {
+    projectId: process.env.GCP_PROJECT_ID as string,
+  },
+
+  pubsub: (process.env.PUBSUB_TYPE as 'GCP' | 'REDIS') || 'REDIS',
 }
 
 export default config;
