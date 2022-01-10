@@ -9,6 +9,7 @@ import * as decoding from 'lib0/decoding';
 import { serverLogger } from './logger/index';
 import config from './config';
 import makePubSub from './pubsub/index';
+import { XMLParser } from 'fast-xml-parser';
 
 const PUBSUB = makePubSub();
 
@@ -98,7 +99,10 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
     }
   }, pingTimeout);
 
-  conn.on('close', () => {
+  conn.on('close', async () => {
+    const contents = await constructIndexableText(doc);
+    serverLogger.info(`${doc.name} closed with contents:\n${contents}`);
+
     closeConn(doc, conn);
     clearInterval(pingInterval);
   });
@@ -162,6 +166,60 @@ export const getYDoc = (docname: string, gc=true): [WSSharedDoc, boolean] => {
 
   return [doc, true];
 }
+
+const mapXMLNodeToText = (node: any, parent: string): string => {
+  let str = '';
+  // block of nodes
+  if (Array.isArray(node)) {
+    // array of nodes
+    node.forEach((n) => {
+      str = `${str}${mapXMLNodeToText(n, parent)}`;
+    });
+    // finished parsing block, add artificial whitespace for some tags
+    // TODO complete list with the remaining tags
+    const whitespaceList = ['paragraph', 'li', 'ul', 'ol', 'table', 'tr', 'td', 'th'];
+    if (whitespaceList.find((tag) => tag === parent)) {
+      str = `${str} `;
+    }
+  }
+  // directly text
+  else if (typeof node === 'string') {
+    // i don't think this can ever happen
+    str = `${str}${node}`;
+  }
+  // this is a sort of node as well, but can sometimes only contain text
+  else if (typeof node === 'object') {
+    // this is an object, check the "#text" property and continue with other properties which can be other nodes
+    Object.entries(node).forEach(([key, value]) => {
+      if (key == '#text' && value && typeof value === 'string') {
+        str = `${str}${value}`;
+      }
+      else {
+        // new parent
+        str = `${str}${mapXMLNodeToText(value, key)}`;
+      }
+    });
+  }
+  return str;
+}
+
+const constructIndexableText = async (doc: WSSharedDoc): Promise<string> => {
+  let xml = doc.getXmlFragment('prosemirror');
+  const parser = new XMLParser({
+    ignoreAttributes: true,
+    alwaysCreateTextNode: true,
+    preserveOrder: true,
+    trimValues: false,
+    // no unpaired tags
+  });
+  const content = parser.parse(JSON.stringify(xml).slice(1,-1));
+  const reducedToString = mapXMLNodeToText(content, 'root');
+
+  serverLogger.info(`content: \n${JSON.stringify(content, null, 2)}\n`);
+  serverLogger.info(`parsed content: \n${reducedToString}\n`);
+
+  return reducedToString;
+};
 
 export const closeConn = (doc: WSSharedDoc, conn: WebSocket): void => {
   const controlledIds = doc.conns.get(conn);
