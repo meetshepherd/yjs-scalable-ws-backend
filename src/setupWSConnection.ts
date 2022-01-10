@@ -7,7 +7,6 @@ import * as mutex from 'lib0/mutex';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import { serverLogger } from './logger/index';
-import { pub, sub } from './pubsub';
 import config from './config';
 import makePubSub from './pubsub/index';
 
@@ -53,8 +52,9 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
   conn.binaryType = 'arraybuffer';
   const docname: string = req.url?.slice(1).split('?')[0] as string;
   const [doc, isNew] = getYDoc(docname);
+
   doc.conns.set(conn, new Set());
-  
+
   conn.on('message', (message: WSData) => {
     messageListener(conn, req, doc, new Uint8Array(message as ArrayBuffer));
   });
@@ -270,6 +270,6 @@ export class WSSharedDoc extends Y.Doc {
 
   destroy() {
     super.destroy();
-    sub.unsubscribe(this.name);
+    PUBSUB.unsubscribe(this.name);
   }
 }
