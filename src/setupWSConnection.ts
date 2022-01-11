@@ -114,8 +114,10 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
   }, pingTimeout);
 
   conn.on('close', async () => {
-    // TODO because of race conditions, 1 document can have 2 clients disconnect at the same time
-    // thus this if statment never reaches at a size <= 1, but 2 times at 3.
+    // TODO fix if possible problem: 1 document can have 2 clients disconnect at the same time
+    //* thus this if statment can sometimes never reach at a size of exactly <= 1 connections
+    //*  but instead it runs 2 times at a higher conn.size value, then suddenly it plummets to 0
+    //? unless someone proves me wrong, this wont be uncommented nor deleted, but kept for further investigation
     // if (doc.conns.size <= 1) {
     const contents = await constructIndexableText(doc);
 
@@ -129,6 +131,7 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
       },
       { merge: true }
     );
+    // }
 
 
     closeConn(doc, conn);
