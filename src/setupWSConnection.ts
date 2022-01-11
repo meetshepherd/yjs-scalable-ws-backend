@@ -15,10 +15,11 @@ const PUBSUB = makePubSub();
 
 //* FIREBASE UTILS
 import { initializeApp } from "firebase/app";
-import { Timestamp, Bytes, doc, collection, getFirestore, getDocs, addDoc, query, orderBy } from "firebase/firestore";
+import { Timestamp, Bytes, doc, collection, getFirestore, getDocs, addDoc, setDoc, getDoc, query, orderBy, startAfter } from "firebase/firestore";
 const app = initializeApp(config.firebaseConfig);
 const db = getFirestore(app);``
 const docnameItemsRef = (docName: string) => collection(db, `meetings/${docName}/items`);
+const docnameCompilation = (docName: string) => doc(db, `meetings/${docName}`);
 //* FIREBASE UTILS
 
 const wsReadyStateConnecting = 0
@@ -61,11 +62,25 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
   });
 
   if (isNew) {
-    // TODO construct starting with checkpoint
-
-    const q = query(docnameItemsRef(doc.name), orderBy('timestamp'));
-    const querySnapshot = await getDocs(q);
     const dbYDoc = new Y.Doc();
+    let timestamp: Timestamp | null = null;
+
+    // check global transaction compilation
+    const docSnap = await getDoc(docnameCompilation(doc.name));
+    if (docSnap.exists()) {
+      const docData = docSnap.data();
+      if (docData.checkpoint && docData.timestamp) {
+        timestamp = docData.timestamp;
+        dbYDoc.transact(() => {
+          Y.applyUpdate(dbYDoc, docData.checkpoint.toUint8Array());
+        });
+      }
+    }
+
+    // if the global transaction compilation was retrieved, pick only the remaining transactions
+    const q = timestamp ? query(docnameItemsRef(doc.name), orderBy('timestamp'), startAfter(timestamp))
+      : query(docnameItemsRef(doc.name), orderBy('timestamp'));
+    const querySnapshot = await getDocs(q);
     dbYDoc.transact(() => {
       querySnapshot.forEach((item) => {
         const data = item.data() as {
@@ -76,8 +91,7 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
       });
     });
 
-    // TODO checkpoint check and update accordingly
-
+    // apply merges to the doc
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(dbYDoc))
   }
 
@@ -100,8 +114,22 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
   }, pingTimeout);
 
   conn.on('close', async () => {
+    // TODO because of race conditions, 1 document can have 2 clients disconnect at the same time
+    // thus this if statment never reaches at a size <= 1, but 2 times at 3.
+    // if (doc.conns.size <= 1) {
     const contents = await constructIndexableText(doc);
-    serverLogger.info(`${doc.name} closed with contents:\n${contents}`);
+
+    await setDoc(
+      docnameCompilation(doc.name), {
+        text: contents,
+        checkpoint: Bytes.fromUint8Array(
+          Y.encodeStateAsUpdate(doc),
+        ),
+        timestamp: Timestamp.fromDate(new Date()),
+      },
+      { merge: true }
+    );
+
 
     closeConn(doc, conn);
     clearInterval(pingInterval);
@@ -214,9 +242,6 @@ const constructIndexableText = async (doc: WSSharedDoc): Promise<string> => {
   });
   const content = parser.parse(JSON.stringify(xml).slice(1,-1));
   const reducedToString = mapXMLNodeToText(content, '#root');
-
-  serverLogger.info(`content: \n${JSON.stringify(content, null, 2)}\n`);
-  serverLogger.info(`parsed content: \n${reducedToString}\n`);
 
   return reducedToString;
 };
