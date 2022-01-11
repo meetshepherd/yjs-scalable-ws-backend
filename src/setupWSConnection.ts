@@ -213,7 +213,7 @@ const constructIndexableText = async (doc: WSSharedDoc): Promise<string> => {
     // no unpaired tags
   });
   const content = parser.parse(JSON.stringify(xml).slice(1,-1));
-  const reducedToString = mapXMLNodeToText(content, 'root');
+  const reducedToString = mapXMLNodeToText(content, '#root');
 
   serverLogger.info(`content: \n${JSON.stringify(content, null, 2)}\n`);
   serverLogger.info(`parsed content: \n${reducedToString}\n`);
