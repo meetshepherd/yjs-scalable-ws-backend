@@ -17,7 +17,7 @@ const PUBSUB = makePubSub();
 import { initializeApp } from "firebase/app";
 import { Timestamp, Bytes, doc, collection, getFirestore, getDocs, addDoc, setDoc, getDoc, query, orderBy, startAfter } from "firebase/firestore";
 const app = initializeApp(config.firebaseConfig);
-const db = getFirestore(app);``
+const db = getFirestore(app);
 const docnameItemsRef = (docName: string) => collection(db, `meetings/${docName}/items`);
 const docnameCompilation = (docName: string) => doc(db, `meetings/${docName}`);
 //* FIREBASE UTILS
