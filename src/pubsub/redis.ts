@@ -8,14 +8,16 @@ export default class RedisPubSub implements PubSub {
 
   private sub = new Redis(config.redis);
 
-  public async publish(topic: string, data: Uint8Array) {
+  public async publish(topic_: string, data: Uint8Array) {
+    const topic = `shp-${topic_}`;
     this.pub.publishBuffer(topic, Buffer.from(data));
   }
 
   public async subscribe(
-    topic: string,
+    topic_: string,
     callback: (update: Buffer, sub: Redis.Redis) => void,
   ): Promise<void> {
+    const topic = `shp-${topic_}`;
     await this.sub.subscribe(topic);
     this.sub.on('messageBuffer', (channel, update) => {
       if (channel.toString() !== topic) {
@@ -26,7 +28,8 @@ export default class RedisPubSub implements PubSub {
     });
   }
 
-  public async unsubscribe(topic: string): Promise<void> {
+  public async unsubscribe(topic_: string): Promise<void> {
+    const topic = `shp-${topic_}`;
     this.sub.unsubscribe(topic);
   }
 }

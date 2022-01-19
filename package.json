@@ -9,10 +9,10 @@
     "clean": "rm -rf dist",
     "build": "npm run clean && tsup",
     "watch": "npm run clean && tsup",
-    "start:development": "nodemon -r source-map-support/register -r dotenv/config dist/app.js dotenv_config_path=.env.development",
+    "start:development": "nodemon -r source-map-support/register -r dotenv/config dist/app.cjs dotenv_config_path=.env.development",
     "start:production": "node -r dotenv/config dist/app.cjs dotenv_config_path=.env.production",
     "start:docker": "node -r dotenv/config dist/app.cjs dotenv_config_path=.env.docker",
-    "image:build": "DOCKER_BUILDKIT=1 docker build -t meetshepherd/crdt-backend . && docker run -p 3002:3002 --add-host host.docker.internal:host-gateway -it meetshepherd/crdt-backend",
+    "image:build": "DOCKER_BUILDKIT=1 docker build -t meetshepherd/crdt-backend .",
     "image:build:run": "DOCKER_BUILDKIT=1 docker build -t meetshepherd/crdt-backend . && docker run -p 3002:3002 --add-host host.docker.internal:host-gateway -it meetshepherd/crdt-backend",
     "tables": "node -r source-map-support/register -r dotenv/config dist/tables.js dotenv_config_path=.env.local"
   },

@@ -333,18 +333,6 @@ export class WSSharedDoc extends Y.Doc {
     PUBSUB.subscribe(this.name, (update, sub) => {
       Y.applyUpdate(this, update, sub);
     });
-
-    // sub.subscribe(this.name).then(() => {
-    //   sub.on('messageBuffer', (channel, update) => {
-    //     if (channel.toString() !== this.name) {
-    //       return;
-    //     }
-
-    //     // update is a Buffer, Buffer is a subclass of Uint8Array, update can be applied
-    //     // as an update directly
-    //     Y.applyUpdate(this, update, sub);
-    //   })
-    // })
   }
 
   destroy() {

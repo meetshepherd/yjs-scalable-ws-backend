@@ -3,16 +3,19 @@ import { string } from "lib0";
 import config from "../config";
 import PubSub from "./generic-pubsub";
 
-const createTopicAndSubscription = async (pubsub: GCPubSub, {topic: topicName, subscription: subscriptionName}: {topic: string, subscription: string}) => {
+const createTopicAndSubscription = async (pubsub: GCPubSub, {topic: topicName_, subscription: subscriptionName_}: {topic: string, subscription: string}) => {
+  const topicName = `shp-${topicName_}`;
+  const subscriptionName = `shp-${subscriptionName_}`;
+  
   let topic = pubsub.topic(topicName);
 
   const [topicExists] = await topic.exists();
 
   if(!topicExists) {
-      [topic] =  await pubsub.createTopic(topicName);
-      console.log(`Topic created ${topicName}`);
+    [topic] =  await pubsub.createTopic(topicName);
+    // console.log(`Topic created ${topicName}`);
   } else {
-      console.log(`Topic exists ${topicName}`);
+    // console.log(`Topic exists ${topicName}`);
   }
 
   let subscription = topic.subscription(subscriptionName);
@@ -20,10 +23,10 @@ const createTopicAndSubscription = async (pubsub: GCPubSub, {topic: topicName, s
   const [subscriptionExists] = await subscription.exists()
 
   if(!subscriptionExists) {
-      [subscription] = await topic.createSubscription(subscriptionName)
-      console.log(`Subscription created ${topicName}`);
+    [subscription] = await topic.createSubscription(subscriptionName)
+    // console.log(`Subscription created ${topicName}`);
   } else {
-      console.log(`Subscription exists ${topicName}`);
+    // console.log(`Subscription exists ${topicName}`);
   }
 
   return {topic, subscription};
@@ -37,7 +40,7 @@ export default class GooglePubSub implements PubSub {
   public async publish(topic: string, data: Uint8Array) {
     const {topic: t, subscription: s} = await createTopicAndSubscription(this.pubusub,{
       topic,
-      subscription: `${topic}-sub`,
+      subscription: `${topic}`,
     });
     await t.publishMessage({
       data: Buffer.from(data),
@@ -47,7 +50,7 @@ export default class GooglePubSub implements PubSub {
   public async subscribe(topic: string, callback: (data: Uint8Array, sub: GCPubSub) => void) {
     const {topic: t, subscription: s} = await createTopicAndSubscription(this.pubusub,{
       topic,
-      subscription: `${topic}-sub`,
+      subscription: `${topic}`,
     });
     s.on("message", (message) => {
       callback(message.data, this.pubusub);
@@ -55,6 +58,6 @@ export default class GooglePubSub implements PubSub {
   }
 
   public async unsubscribe(topic: string) {
-    this.pubusub.subscription(`${topic}-sub`).delete();
+    this.pubusub.subscription(`${topic}`).delete();
   }
 }
