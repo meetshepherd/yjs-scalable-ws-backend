@@ -2,6 +2,25 @@
 
 Example of horizontally scalable websocket backend for [y-js](https://github.com/yjs/yjs) to be used with [y-websocket](https://github.com/yjs/y-websocket) provider with persitence to firebase.
 
+## Commands
+
+`npm run start:development` - refresh on change, uses `.env.development`
+
+---
+
+`npm run start:production` - no refresh, uses `.env.production`
+
+---
+
+`npm run start:docker` - no refresh, uses `.env.docker`
+
+---
+
+`npm run image:build` - builds docker image
+
+---
+
+`npm run image:build:run` - builds then runs the docker image using `npm run start:docker`
 ## Usage
 
 1. `npm ci`
