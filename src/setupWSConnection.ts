@@ -1,5 +1,6 @@
 import { WebSocket, Data as WSData } from 'ws';
 import http from 'http';
+import { Timestamp, Bytes, getDocs, addDoc, setDoc, getDoc, query, orderBy, startAfter } from "firebase/firestore";
 import * as Y from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as syncProtocol from 'y-protocols/sync';
@@ -10,17 +11,9 @@ import { serverLogger } from './logger/index';
 import config from './config';
 import makePubSub from './pubsub/index';
 import { XMLParser } from 'fast-xml-parser';
+import { docnameItemsRef, docnameCompilation } from './persistence/firebase';
 
 const PUBSUB = makePubSub();
-
-//* FIREBASE UTILS
-import { initializeApp } from "firebase/app";
-import { Timestamp, Bytes, doc, collection, getFirestore, getDocs, addDoc, setDoc, getDoc, query, orderBy, startAfter } from "firebase/firestore";
-const app = initializeApp(config.firebaseConfig);
-const db = getFirestore(app);
-const docnameItemsRef = (docName: string) => collection(db, `meetings/${docName}/items`);
-const docnameCompilation = (docName: string) => doc(db, `meetings/${docName}`);
-//* FIREBASE UTILS
 
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
