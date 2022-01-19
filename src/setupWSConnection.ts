@@ -43,6 +43,75 @@ export function cleanup() {
   })
 }
 
+type TimestampedYDoc = [Y.Doc, Timestamp | null];
+
+interface CompiledYDoc {
+  text: string,
+  checkpoint: Bytes,
+  timestamp: Timestamp,
+}
+
+/**
+ * Construct a YDoc based on previous content.
+ * @param docName Document name
+ * @returns The previous YDoc and its timestamp, or a new doc with no timestamp
+ */
+const previousYDoc = async (docName: string): Promise<TimestampedYDoc> => {
+  const dbYDoc = new Y.Doc();
+  let timestamp: Timestamp | null = null;
+  const docSnap = await getDoc(docnameCompilation(docName));
+  if (docSnap.exists()) {
+    const docData = docSnap.data();
+    if (docData.checkpoint && docData.timestamp) {
+      timestamp = docData.timestamp;
+      dbYDoc.transact(() => {
+        Y.applyUpdate(dbYDoc, docData.checkpoint.toUint8Array());
+      });
+    }
+  }
+  return [dbYDoc, timestamp];
+}
+
+/**
+ * Construct the complete YDoc
+ * @param docName Document name
+ * @returns The YDoc that contains all the document's content up until 'now'
+ */
+const constructNewYDoc = async (docName: string): Promise<TimestampedYDoc> => {
+  const timestampQuery = (timestamp: Timestamp | null) => {
+    if (timestamp)
+      return query(docnameItemsRef(docName), orderBy('timestamp'), startAfter(timestamp));
+    return query(docnameItemsRef(docName), orderBy('timestamp'));
+  }
+  const [dbYDoc, timestamp] = await previousYDoc(docName);
+  let lastTimestamp: Timestamp | null = timestamp; // last timestamp recorded for the creation of this document
+
+  const querySnapshot = await getDocs(timestampQuery(timestamp));
+  dbYDoc.transact(() => {
+    querySnapshot.forEach((item) => {
+      const data = item.data() as {
+        timestamp: Timestamp,
+        update: Bytes,
+      };
+      Y.applyUpdate(dbYDoc, data.update.toUint8Array());
+      lastTimestamp = data.timestamp;
+    });
+  });
+
+  return [dbYDoc, lastTimestamp];
+}
+
+const compileYDoc = async (docName: string): Promise<CompiledYDoc> => {
+  const [dbYDoc, lastTimestamp] = await constructNewYDoc(docName);
+  return {
+    text: await constructIndexableText(dbYDoc),
+    checkpoint: Bytes.fromUint8Array(
+      Y.encodeStateAsUpdate(dbYDoc),
+    ),
+    timestamp: lastTimestamp ?? Timestamp.fromDate(new Date()),
+  };  
+}
+
 export default async function setupWSConnection(conn: WebSocket, req: http.IncomingMessage): Promise<void> {
   conn.binaryType = 'arraybuffer';
   const docname: string = req.url?.slice(1).split('?')[0] as string;
@@ -55,37 +124,8 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
   });
 
   if (isNew) {
-    const dbYDoc = new Y.Doc();
-    let timestamp: Timestamp | null = null;
-
-    // check global transaction compilation
-    const docSnap = await getDoc(docnameCompilation(doc.name));
-    if (docSnap.exists()) {
-      const docData = docSnap.data();
-      if (docData.checkpoint && docData.timestamp) {
-        timestamp = docData.timestamp;
-        dbYDoc.transact(() => {
-          Y.applyUpdate(dbYDoc, docData.checkpoint.toUint8Array());
-        });
-      }
-    }
-
-    // if the global transaction compilation was retrieved, pick only the remaining transactions
-    const q = timestamp ? query(docnameItemsRef(doc.name), orderBy('timestamp'), startAfter(timestamp))
-      : query(docnameItemsRef(doc.name), orderBy('timestamp'));
-    const querySnapshot = await getDocs(q);
-    serverLogger.warn(`^^&&**: ${querySnapshot.size}`);
-    dbYDoc.transact(() => {
-      querySnapshot.forEach((item) => {
-        const data = item.data() as {
-          timestamp: Timestamp,
-          update: Bytes,
-        };
-        Y.applyUpdate(dbYDoc, data.update.toUint8Array());
-      });
-    });
-
-    // apply merges to the doc
+    const [dbYDoc, lastTimestamp] = await constructNewYDoc(doc.name);
+    serverLogger.warn(`New from last checkpoint: ${lastTimestamp?.toDate().toISOString()}`);
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(dbYDoc))
   }
 
@@ -108,25 +148,11 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
   }, pingTimeout);
 
   conn.on('close', async () => {
-    // TODO fix if possible problem: 1 document can have 2 clients disconnect at the same time
-    //* thus this if statment can sometimes never reach at a size of exactly <= 1 connections
-    //*  but instead it runs 2 times at a higher conn.size value, then suddenly it plummets to 0
-    //? unless someone proves me wrong, this wont be uncommented nor deleted, but kept for further investigation
-    // if (doc.conns.size <= 1) {
-    const contents = await constructIndexableText(doc);
-
     await setDoc(
-      docnameCompilation(doc.name), {
-        text: contents,
-        checkpoint: Bytes.fromUint8Array(
-          Y.encodeStateAsUpdate(doc),
-        ),
-        timestamp: Timestamp.fromDate(new Date()),
-      },
+      docnameCompilation(doc.name),
+      await compileYDoc(doc.name),
       { merge: true }
     );
-    // }
-
 
     closeConn(doc, conn);
     clearInterval(pingInterval);
@@ -228,7 +254,7 @@ const mapXMLNodeToText = (node: any, parent: string): string => {
   return str;
 }
 
-const constructIndexableText = async (doc: WSSharedDoc): Promise<string> => {
+const constructIndexableText = async (doc: Y.Doc): Promise<string> => {
   let xml = doc.getXmlFragment('prosemirror');
   const parser = new XMLParser({
     ignoreAttributes: true,
