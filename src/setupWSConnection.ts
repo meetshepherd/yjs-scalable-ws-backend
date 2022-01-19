@@ -74,6 +74,7 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
     const q = timestamp ? query(docnameItemsRef(doc.name), orderBy('timestamp'), startAfter(timestamp))
       : query(docnameItemsRef(doc.name), orderBy('timestamp'));
     const querySnapshot = await getDocs(q);
+    serverLogger.warn(`^^&&**: ${querySnapshot.size}`);
     dbYDoc.transact(() => {
       querySnapshot.forEach((item) => {
         const data = item.data() as {
@@ -304,6 +305,7 @@ export class WSSharedDoc extends Y.Doc {
 
   constructor(name: string) {
     super();
+
 
     this.name = name;
     this.mux = mutex.createMutex();

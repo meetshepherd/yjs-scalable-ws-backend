@@ -1,5 +1,9 @@
+import { uuidv4 } from "lib0/random";
+
 const config = {
   testing: process.env.JEST_WORKER_ID !== undefined,
+
+  containerUniqueId: uuidv4(),
 
   server: {
     port: Number(process.env.SERVER_PORT),
