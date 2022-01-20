@@ -125,7 +125,6 @@ export default async function setupWSConnection(conn: WebSocket, req: http.Incom
 
   if (isNew) {
     const [dbYDoc, lastTimestamp] = await constructNewYDoc(doc.name);
-    serverLogger.warn(`New from last checkpoint: ${lastTimestamp?.toDate().toISOString()}`);
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(dbYDoc))
   }
 
