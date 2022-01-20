@@ -48,7 +48,6 @@ const createLoggerForSpecificModule = (component: string): Logger => {
     ],
     exitOnError: false,
   });
-
   return logger;
 };
 

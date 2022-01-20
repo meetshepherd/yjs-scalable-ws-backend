@@ -197,7 +197,9 @@ export const messageListener = async (conn: WebSocket, req: http.IncomingMessage
       break;
     }
     case messageAwareness: {
-      awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn);
+      const decodedUpdate = decoding.readVarUint8Array(decoder)
+      awarenessProtocol.applyAwarenessUpdate(doc.awareness, decodedUpdate, conn);
+      PUBSUB.publish(`aws_${doc.name}`, decodedUpdate);
       break;
     }
     default: throw new Error('unreachable');
@@ -360,6 +362,14 @@ export class WSSharedDoc extends Y.Doc {
 
     PUBSUB.subscribe(this.name, (update, sub) => {
       Y.applyUpdate(this, update, sub);
+    });
+
+    PUBSUB.subscribe(`aws_${this.name}`, (update, sub) => {
+      awarenessProtocol.applyAwarenessUpdate(
+        this.awareness,
+        update,
+        undefined,
+      );
     });
   }
 
