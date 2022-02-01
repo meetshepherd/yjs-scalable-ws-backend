@@ -15,8 +15,8 @@ if (config.firebaseMeta.connectTo === 'EMULATOR') {
 
 export { db };
 
-const docnameItemsRef = (docName: string) => collection(db, `meetings/${docName}/items`);
-const docnameCompilation = (docName: string) => doc(db, `meetings/${docName}`);
+const docnameItemsRef = (docName: string) => collection(db, `meetings_yjs/${docName}/items`);
+const docnameCompilation = (docName: string) => doc(db, `meetings_yjs/${docName}`);
 
 export { docnameItemsRef };
 export { docnameCompilation };
