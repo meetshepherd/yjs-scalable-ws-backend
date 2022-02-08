@@ -5,6 +5,7 @@ import http from 'http';
 import config from './config';
 import { serverLogger } from './logger/index';
 import setupWSConnection, { cleanup } from './setupWSConnection';
+import handleOpengraphRequest, { OGResponse } from './opengraph/index';
 
 export const app = express();
 export const server = http.createServer(app);
@@ -12,6 +13,24 @@ export const wss = new WebSocketServer({noServer: true});
 
 wss.on('connection', async (ws, req) => {
   await setupWSConnection(ws, req);
+});
+
+app.get('/opengraph', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', "*")
+    .header('Access-Control-Allow-Headers', "*");
+  const { url } = req.query;
+  const urlParam = url?.toString() ?? '';
+  const OGData = await handleOpengraphRequest(urlParam);
+  if (!OGData) {
+    res.status(409).json({
+      type: 'error',
+      message: 'Could not provide a response!',
+    });
+  }
+  else {
+    res.status(200).json(OGData);
+  }
+  console.log(OGData);
 });
 
 server.on('upgrade', (req, socket, head) => {

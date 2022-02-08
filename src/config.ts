@@ -27,6 +27,10 @@ const config = {
     measurementId: process.env.FIREBASE_MEASUREMENT_ID || '',
   },
 
+  facebookConfig: {
+    access_token: process.env.F_ACCESS_TOKEN,
+  },
+
   redis: {
     host: process.env.REDIS_HOST as string,
     port: Number(process.env.REDIS_PORT as string),
