@@ -16,6 +16,7 @@ wss.on('connection', async (ws, req) => {
 });
 
 app.get('/opengraph', async (req, res) => {
+  // TODO restrict Access-Control to known hosts and domains
   res.header('Access-Control-Allow-Origin', "*")
     .header('Access-Control-Allow-Headers', "*");
   const { url } = req.query;
@@ -30,7 +31,6 @@ app.get('/opengraph', async (req, res) => {
   else {
     res.status(200).json(OGData);
   }
-  console.log(OGData);
 });
 
 server.on('upgrade', (req, socket, head) => {
